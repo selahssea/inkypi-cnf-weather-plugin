@@ -14,40 +14,44 @@
     <div class="current-date">{{ current_date }}</div>
   </div>
 
-  <div class="today-container">
-    <!-- Current Weather Row -->
-    <div class="current-temperature">
-      <!-- Icon + Temperature -->
-        <img class="current-icon" src="{{current_day_icon}}" alt="Current Weather Icon">
-        <div class="current-weather">
-          <div class="current-temp">{{ current_temperature }}<span class="temperature-unit">{{temperature_unit}}</span></div>
-          <div class="feels-like">Feels Like {{ feels_like }}{% if units != "standard" %}°{% endif %}</div>
-          <div class="min-max">{{ forecast[0].high }}{% if units != "standard" %}°{% endif %} / {{ forecast[0].low }}{% if units != "standard" %}°{% endif %}</div>
-        </div>
+  <!-- Main Weather Icon + Temperature -->
+  <div class="main-weather">
+    <div class="main-weather-content">
+      <img class="main-icon" src="{{current_day_icon}}" alt="Current Weather Icon">
+      <div class="main-temps">
+        <div class="main-temp-celsius">{{ current_temperature_celsius }}°C</div>
+        <div class="main-temp-separator"> / </div>
+        <div class="main-temp-fahrenheit">{{ current_temperature_fahrenheit }}°F</div>
+      </div>
     </div>
-
-    <!-- Data Points Grid (Sunset, Wind, UV, etc.) -->
-    {% if plugin_settings.displayMetrics and  plugin_settings.displayMetrics == "true" %}
-    <div class="data-points">
-      {% for dp in data_points %}
-        <div class="data-point column-container">
-          <div class="data-point-img-container">
-            <img class="data-point-icon" src="{{dp.icon}}" alt="{{ dp.label }}">
-          </div>
-          <div class="data-point-data">
-            <div class="data-point-label">{{ dp.label }}</div>
-            <div class="data-point-measurement">
-			        {{ dp.measurement }}{% if dp.unit %}<span class="data-point-unit">{{ dp.unit }}</span>{% endif %}
-              {% if dp.label == "Wind" %}
-                <span class="wind-arrow-symbol">{{ dp.arrow }}</span>
-              {% endif %}
-		    	 </div>
-          </div>
-        </div>
-      {% endfor %}
-    </div>
-    {% endif %}
   </div>
+
+  <!-- Weather Details -->
+  {% if plugin_settings.displayMetrics and plugin_settings.displayMetrics == "true" %}
+  <div class="weather-details">
+    <div class="detail-row">
+      <span class="detail-label">Feels Like</span>
+      <span class="detail-value">{{ feels_like_celsius }}°C / {{ feels_like_fahrenheit }}°F</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Low – High</span>
+      <span class="detail-value">{{ forecast[0].low_c }}°C – {{ forecast[0].high_c }}°C / {{ forecast[0].low_f }}°F – {{ forecast[0].high_f }}°F</span>
+    </div>
+    {% for dp in data_points %}
+      {% if dp.label == "Wind" %}
+    <div class="detail-row">
+      <span class="detail-label">{{ dp.label }}</span>
+      <span class="detail-value">{{ dp.measurement }} {{ dp.unit }} {{ dp.arrow }}</span>
+    </div>
+      {% elif dp.label == "Air Quality" %}
+    <div class="detail-row">
+      <span class="detail-label">{{ dp.label }}</span>
+      <span class="detail-value">{{ dp.measurement }} ({{ dp.unit }})</span>
+    </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
 
   <!-- Hourly Temperature Graph -->
   {% if plugin_settings.displayGraph and plugin_settings.displayGraph == "true" %}
@@ -56,8 +60,8 @@
   </div>
   {% endif %}
 
-  <!-- Forecast Row -->
-  {% if plugin_settings.displayForecast and plugin_settings.displayForecast == "true" %}
+  <!-- Forecast Row temporary hidden-->
+  <!-- {% if plugin_settings.displayForecast and plugin_settings.displayForecast == "true" %}
   <div class="forecast">
     {% for day in forecast[1:(plugin_settings.forecastDays | int) + 1] %}
       <div class="forecast-day">
@@ -77,7 +81,7 @@
       </div>
     {% endfor %}
   </div>
-  {% endif %}
+  {% endif %} -->
 </div>
 
 <script src="{{static_dir}}/scripts/chart.js" charset="UTF-8"></script>

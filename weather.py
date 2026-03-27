@@ -149,16 +149,42 @@ class Weather(BasePlugin):
         if icon_code not in icon_codes_to_preserve:
             if current_icon.endswith('n'):
                 current_icon = current_icon.replace("n", "d")
+
+        # Calculate both Celsius and Fahrenheit temperatures
+        # OpenWeatherMap returns temp in the requested unit
+        temp_raw = current.get("temp")
+        feels_like_raw = current.get("feels_like")
+
+        if units == "standard":  # Kelvin
+            temp_c = round(temp_raw - 273.15)
+            temp_f = round((temp_raw - 273.15) * 9/5 + 32)
+            feels_like_c = round(feels_like_raw - 273.15)
+            feels_like_f = round((feels_like_raw - 273.15) * 9/5 + 32)
+        elif units == "metric":  # Celsius
+            temp_c = round(temp_raw)
+            temp_f = round(temp_raw * 9/5 + 32)
+            feels_like_c = round(feels_like_raw)
+            feels_like_f = round(feels_like_raw * 9/5 + 32)
+        else:  # imperial (Fahrenheit)
+            temp_c = round((temp_raw - 32) * 5/9)
+            temp_f = round(temp_raw)
+            feels_like_c = round((feels_like_raw - 32) * 5/9)
+            feels_like_f = round(feels_like_raw)
+
         data = {
             "current_date": dt.strftime("%A, %B %d"),
             "current_day_icon": self.get_plugin_dir(f'icons/{current_icon}.png'),
             "current_temperature": str(round(current.get("temp"))),
+            "current_temperature_celsius": str(temp_c),
+            "current_temperature_fahrenheit": str(temp_f),
             "feels_like": str(round(current.get("feels_like"))),
+            "feels_like_celsius": str(feels_like_c),
+            "feels_like_fahrenheit": str(feels_like_f),
             "temperature_unit": UNITS[units]["temperature"],
             "units": units,
             "time_format": time_format
         }
-        data['forecast'] = self.parse_forecast(weather_data.get('daily'), tz, current_suffix, lat)
+        data['forecast'] = self.parse_forecast(weather_data.get('daily'), tz, current_suffix, lat, units)
         data['data_points'] = self.parse_data_points(weather_data, aqi_data, tz, units, time_format)
 
         data['hourly_forecast'] = self.parse_hourly(weather_data.get('hourly'), tz, time_format, units, daily_forecast)
@@ -174,11 +200,35 @@ class Weather(BasePlugin):
         
         temperature_conversion = 273.15 if units == "standard" else 0.
 
+        # Calculate both Celsius and Fahrenheit temperatures
+        temp_raw = current.get("temperature", 0)
+        feels_like_raw = current.get("apparent_temperature", temp_raw)
+
+        if units == "metric":
+            temp_c = round(temp_raw)
+            temp_f = round(temp_raw * 9/5 + 32)
+            feels_like_c = round(feels_like_raw)
+            feels_like_f = round(feels_like_raw * 9/5 + 32)
+        elif units == "imperial":
+            temp_c = round((temp_raw - 32) * 5/9)
+            temp_f = round(temp_raw)
+            feels_like_c = round((feels_like_raw - 32) * 5/9)
+            feels_like_f = round(feels_like_raw)
+        else:  # standard (Kelvin)
+            temp_c = round(temp_raw - 273.15)
+            temp_f = round((temp_raw - 273.15) * 9/5 + 32)
+            feels_like_c = round(feels_like_raw - 273.15)
+            feels_like_f = round((feels_like_raw - 273.15) * 9/5 + 32)
+
         data = {
             "current_date": dt.strftime("%A, %B %d"),
             "current_day_icon": self.get_plugin_dir(f'icons/{current_icon}.png'),
             "current_temperature": str(round(current.get("temperature", 0) + temperature_conversion)),
+            "current_temperature_celsius": str(temp_c),
+            "current_temperature_fahrenheit": str(temp_f),
             "feels_like": str(round(current.get("apparent_temperature", current.get("temperature", 0)) + temperature_conversion)),
+            "feels_like_celsius": str(feels_like_c),
+            "feels_like_fahrenheit": str(feels_like_f),
             "temperature_unit": UNITS[units]["temperature"],
             "units": units,
             "time_format": time_format
@@ -260,7 +310,7 @@ class Weather(BasePlugin):
         
         return self.get_plugin_dir(f"icons/{phase_name}.png")
 
-    def parse_forecast(self, daily_forecast, tz, current_suffix, lat):
+    def parse_forecast(self, daily_forecast, tz, current_suffix, lat, units="metric"):
         """
         - daily_forecast: list of daily entries from One‑Call v3 (each has 'dt', 'weather', 'temp', 'moon_phase')
         - tz: your target tzinfo (e.g. from zoneinfo or pytz)
@@ -285,6 +335,17 @@ class Weather(BasePlugin):
                 return "waninggibbous"
             else:
                 return "waningcrescent"
+
+        def convert_temp(unit_temp):
+            if units == "standard":
+                return round(unit_temp - 273.15), round(unit_temp * 9/5 - 459.67)
+            elif units == "metric":
+                c = round(unit_temp - 273.15)
+                return c, round(c * 9/5 + 32)
+            else:
+                f = round(unit_temp * 9/5 - 459.67)
+                return round((f - 32) * 5/9), f
+
 
         forecast = []
         icon_codes_to_apply_current_suffix = ["01", "02", "10"]
@@ -313,11 +374,18 @@ class Weather(BasePlugin):
             dt = datetime.fromtimestamp(day["dt"], tz=timezone.utc).astimezone(tz)
             day_label = dt.strftime("%a")
 
+            high_c, high_f = convert_temp(day["temp"]["max"])
+            low_c, low_f = convert_temp(day["temp"]["min"])
+
             forecast.append(
                 {
                     "day": day_label,
                     "high": int(day["temp"]["max"]),
+                    "high_c": high_c,
+                    "high_f": high_f,
                     "low": int(day["temp"]["min"]),
+                    "low_c": low_c,
+                    "low_f": low_f,
                     "icon": weather_icon_path,
                     "moon_phase_pct": moon_pct,
                     "moon_phase_icon": moon_icon_path,
@@ -363,10 +431,24 @@ class Weather(BasePlugin):
                 phase_name_north_hemi = "newmoon"
             moon_icon_path = self.get_moon_phase_icon_path(phase_name_north_hemi, lat)
 
+            temp_max_val = temp_max[i] if i < len(temp_max) else 0
+            temp_min_val = temp_min[i] if i < len(temp_min) else 0
+            
+            if units == "imperial":
+                high_f, low_f = int(temp_max_val), int(temp_min_val)
+                high_c, low_c = int((temp_max_val - 32) * 5/9), int((temp_min_val - 32) * 5/9)
+            else:
+                high_c, low_c = int(temp_max_val), int(temp_min_val)
+                high_f, low_f = int(temp_max_val * 9/5 + 32), int(temp_min_val * 9/5 + 32)
+
             forecast.append({
                 "day": day_label,
-                "high": int(temp_max[i]) if i < len(temp_max) else 0,
-                "low": int(temp_min[i]) if i < len(temp_min) else 0,
+                "high": int(temp_max_val),
+                "high_c": high_c,
+                "high_f": high_f,
+                "low": int(temp_min_val),
+                "low_c": low_c,
+                "low_f": low_f,
                 "icon": weather_icon_path,
                 "moon_phase_pct": f"{illum_pct:.0f}",
                 "moon_phase_icon": moon_icon_path
