@@ -25,9 +25,13 @@ Perfect if you prefer seeing both units without switching settings.
    cd ~/InkyPi
    ```
 
-3. Pull this plugin into the existing weather folder (this will overwrite the original weather plugin with the CºnºF version):
+3. Replace the original weather plugin with this C°n°F version:
 
    ```bash
+   # Remove the old weather plugin folder
+   sudo rm -rf src/plugins/weather
+
+   # Clone this plugin directly into the weather folder
    git clone https://github.com/selahssea/inkypi-cnf-weather-plugin.git src/plugins/weather
    ```
 
